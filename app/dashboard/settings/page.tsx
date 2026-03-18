@@ -226,7 +226,7 @@ export default function SettingsPage() {
       <div className="neuro p-6 space-y-3">
         <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Security</h2>
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          We'll send a reset link to your email.
+          We&apos;ll send a reset link to your email.
         </p>
         {pwMsg && <p className="text-xs" style={{ color: "var(--accent)" }}>{pwMsg}</p>}
         <button onClick={changePassword} disabled={pwLoading}
