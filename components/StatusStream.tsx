@@ -26,30 +26,50 @@ export default function StatusStream({ slug }: { slug: string }) {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+    if (!token) { router.push("/login"); return; }
+
     const url = `${process.env.NEXT_PUBLIC_API_URL}/onboard/${slug}/stream`;
-    const es = new EventSource(`${url}?token=${token}`);
+    let active = true;
 
-    es.onmessage = (e) => {
-      const ev: StatusEvent = JSON.parse(e.data);
-      setEvents((prev) => [...prev, ev]);
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(async (res) => {
+        if (!res.ok || !res.body) {
+          setError("Failed to connect to status stream.");
+          return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-      if (ev.event === "active") {
-        setDone(true);
-        es.close();
-        setTimeout(() => router.push("/dashboard"), 2000);
-      }
-      if (ev.event === "error") {
-        setError(ev.detail || ev.message);
-        es.close();
-      }
-    };
+        while (active) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
 
-    es.onerror = () => {
-      setError("Connection to status stream lost.");
-      es.close();
-    };
+          for (const line of lines) {
+            if (!line.startsWith("data:")) continue;
+            try {
+              const ev: StatusEvent = JSON.parse(line.slice(5).trim());
+              setEvents((prev) => [...prev, ev]);
+              if (ev.event === "active") {
+                setDone(true);
+                active = false;
+                setTimeout(() => router.push("/dashboard"), 2000);
+              }
+              if (ev.event === "error") {
+                setError(ev.detail || ev.message);
+                active = false;
+              }
+            } catch { /* skip malformed SSE line */ }
+          }
+        }
+        reader.cancel();
+      })
+      .catch(() => setError("Connection to status stream lost."));
 
-    return () => es.close();
+    return () => { active = false; };
   }, [slug, router]);
 
   return (

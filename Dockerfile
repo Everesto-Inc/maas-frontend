@@ -8,11 +8,11 @@ RUN npm ci
 
 COPY . .
 
-# NEXT_PUBLIC_* vars are baked in at build time.
-# These are passed as --build-arg in CI.
-ARG NEXT_PUBLIC_API_URL=https://api.everesto.live
-ARG NEXT_PUBLIC_GRAFANA_URL=https://grafana.everesto.live
-ARG NEXT_PUBLIC_APP_NAME=Oracle MaaS
+# NEXT_PUBLIC_* vars are baked into the JS bundle at build time.
+# Must be supplied via --build-arg in CI — no defaults intentionally.
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_GRAFANA_URL
+ARG NEXT_PUBLIC_APP_NAME
 
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_GRAFANA_URL=$NEXT_PUBLIC_GRAFANA_URL
