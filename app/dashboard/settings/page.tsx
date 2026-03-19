@@ -30,6 +30,7 @@ export default function SettingsPage() {
   const [pwLoading, setPwLoading]   = useState(false);
   const [grafanaCreds, setGrafanaCreds] = useState<{ url: string; user: string; pass: string } | null>(null);
   const [grafanaCredsLoading, setGrafanaCredsLoading] = useState(false);
+  const [grafanaCredsError, setGrafanaCredsError] = useState("");
   const [grafanaPwForm, setGrafanaPwForm] = useState({ new_password: "", confirm: "" });
   const [grafanaPwMsg, setGrafanaPwMsg]   = useState("");
   const [grafanaPwLoading, setGrafanaPwLoading] = useState(false);
@@ -80,12 +81,14 @@ export default function SettingsPage() {
   const openLaptopDashboard = async () => {
     if (!laptopCmd?.laptop_dashboard_url) return;
     setGrafanaCredsLoading(true);
+    setGrafanaCredsError("");
     try {
+      const grafanaBase = process.env.NEXT_PUBLIC_GRAFANA_URL ?? "";
       const res = await api.get<{ url: string; grafana_user: string; grafana_pass: string }>("/clients/me/grafana-url");
       const fullUrl = `${grafanaBase}${laptopCmd.laptop_dashboard_url}`;
       setGrafanaCreds({ url: fullUrl, user: res.grafana_user, pass: res.grafana_pass });
-    } catch {
-      // silent — dashboard link remains visible
+    } catch (err) {
+      setGrafanaCredsError(err instanceof Error ? err.message : "Failed to load credentials.");
     } finally {
       setGrafanaCredsLoading(false);
     }
@@ -114,8 +117,6 @@ export default function SettingsPage() {
         month: "short", day: "numeric", year: "numeric",
       })
     : null;
-
-  const grafanaBase = process.env.NEXT_PUBLIC_GRAFANA_URL ?? "http://localhost:3001";
 
   return (
     <main className="min-h-screen px-4 py-10 max-w-xl mx-auto space-y-6">
@@ -222,13 +223,18 @@ export default function SettingsPage() {
 
             {/* Dashboard link — show credentials first, then open */}
             {laptopCmd.laptop_dashboard_url ? (
-              <button
-                onClick={openLaptopDashboard}
-                disabled={grafanaCredsLoading}
-                className="neuro-btn w-full py-3 text-sm font-medium disabled:opacity-60"
-                style={{ color: "var(--accent)" }}>
-                {grafanaCredsLoading ? "Loading credentials…" : "Open My Laptop Dashboard →"}
-              </button>
+              <>
+                <button
+                  onClick={openLaptopDashboard}
+                  disabled={grafanaCredsLoading}
+                  className="neuro-btn w-full py-3 text-sm font-medium disabled:opacity-60"
+                  style={{ color: "var(--accent)" }}>
+                  {grafanaCredsLoading ? "Loading credentials…" : "Open My Laptop Dashboard →"}
+                </button>
+                {grafanaCredsError && (
+                  <p className="text-xs" style={{ color: "#f87171" }}>{grafanaCredsError}</p>
+                )}
+              </>
             ) : (
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                 Dashboard provisioning… try refreshing in a moment.
@@ -345,11 +351,14 @@ export default function SettingsPage() {
                 </div>
               </div>
             ))}
-            <button
-              onClick={() => { window.open(grafanaCreds.url, "_blank"); setGrafanaCreds(null); }}
-              className="neuro-btn-primary w-full py-2 text-sm font-medium">
+            <a
+              href={grafanaCreds.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setGrafanaCreds(null)}
+              className="neuro-btn-primary w-full py-2 text-sm font-medium text-center block">
               Open My Laptop Dashboard →
-            </button>
+            </a>
             <button onClick={() => setGrafanaCreds(null)}
               className="w-full text-xs text-center" style={{ color: "var(--text-muted)" }}>
               Cancel
