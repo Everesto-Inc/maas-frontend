@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [vms, setVms]         = useState<Vm[]>([]);
   const [loading, setLoading] = useState(true);
   const [grafanaLoading, setGrafanaLoading] = useState(false);
+  const [grafanaCreds, setGrafanaCreds] = useState<{ url: string; user: string; pass: string } | null>(null);
 
   useEffect(() => {
     const c = getClient();
@@ -36,8 +37,8 @@ export default function DashboardPage() {
   const openGrafana = async () => {
     setGrafanaLoading(true);
     try {
-      const res = await api.get<{ url: string }>("/clients/me/grafana-url");
-      window.open(res.url, "_blank");
+      const res = await api.get<{ url: string; grafana_user: string; grafana_pass: string }>("/clients/me/grafana-url");
+      setGrafanaCreds({ url: res.url, user: res.grafana_user, pass: res.grafana_pass });
     } catch {
       alert("Dashboard not ready yet. Make sure your agent is running.");
     } finally {
@@ -121,6 +122,42 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Grafana credentials modal */}
+      {grafanaCreds && (
+        <div className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: "rgba(0,0,0,0.4)" }}>
+          <div className="neuro p-8 max-w-sm w-full space-y-5 mx-4">
+            <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+              Grafana login credentials
+            </h3>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Use these to log in. Grafana will open in a new tab.
+            </p>
+            {[{ label: "Username", value: grafanaCreds.user }, { label: "Password", value: grafanaCreds.pass }].map(({ label, value }) => (
+              <div key={label} className="space-y-1">
+                <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>{label}</p>
+                <div className="neuro-inset px-3 py-2 flex items-center justify-between gap-2">
+                  <span className="text-sm font-mono" style={{ color: "var(--text-primary)" }}>{value}</span>
+                  <button onClick={() => navigator.clipboard.writeText(value)}
+                    className="text-xs px-2 py-1 neuro-btn" style={{ color: "var(--accent)" }}>
+                    Copy
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={() => { window.open(grafanaCreds.url, "_blank"); setGrafanaCreds(null); }}
+              className="neuro-btn-primary w-full py-2 text-sm font-medium">
+              Open Grafana →
+            </button>
+            <button onClick={() => setGrafanaCreds(null)}
+              className="w-full text-xs text-center" style={{ color: "var(--text-muted)" }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

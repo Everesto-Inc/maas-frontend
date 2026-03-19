@@ -28,6 +28,11 @@ export default function SettingsPage() {
   const [copied, setCopied]         = useState(false);
   const [pwMsg, setPwMsg]           = useState("");
   const [pwLoading, setPwLoading]   = useState(false);
+  const [grafanaCreds, setGrafanaCreds] = useState<{ url: string; user: string; pass: string } | null>(null);
+  const [grafanaCredsLoading, setGrafanaCredsLoading] = useState(false);
+  const [grafanaPwForm, setGrafanaPwForm] = useState({ new_password: "", confirm: "" });
+  const [grafanaPwMsg, setGrafanaPwMsg]   = useState("");
+  const [grafanaPwLoading, setGrafanaPwLoading] = useState(false);
 
   useEffect(() => {
     if (!getClient()) { router.push("/login"); return; }
@@ -71,6 +76,38 @@ export default function SettingsPage() {
   };
 
   const logout = () => { clearSession(); router.push("/login"); };
+
+  const openLaptopDashboard = async () => {
+    if (!laptopCmd?.laptop_dashboard_url) return;
+    setGrafanaCredsLoading(true);
+    try {
+      const res = await api.get<{ url: string; grafana_user: string; grafana_pass: string }>("/clients/me/grafana-url");
+      const fullUrl = `${grafanaBase}${laptopCmd.laptop_dashboard_url}`;
+      setGrafanaCreds({ url: fullUrl, user: res.grafana_user, pass: res.grafana_pass });
+    } catch {
+      // silent — dashboard link remains visible
+    } finally {
+      setGrafanaCredsLoading(false);
+    }
+  };
+
+  const changeGrafanaPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (grafanaPwForm.new_password !== grafanaPwForm.confirm) {
+      setGrafanaPwMsg("Passwords do not match.");
+      return;
+    }
+    setGrafanaPwLoading(true); setGrafanaPwMsg("");
+    try {
+      await api.put("/clients/me/grafana-password", { new_password: grafanaPwForm.new_password });
+      setGrafanaPwMsg("Grafana password updated.");
+      setGrafanaPwForm({ new_password: "", confirm: "" });
+    } catch (err) {
+      setGrafanaPwMsg(err instanceof Error ? err.message : "Failed to update password.");
+    } finally {
+      setGrafanaPwLoading(false);
+    }
+  };
 
   const expiresLabel = laptopCmd
     ? new Date(laptopCmd.token_expires_at).toLocaleDateString(undefined, {
@@ -183,16 +220,15 @@ export default function SettingsPage() {
               <strong style={{ color: "var(--text-primary)" }}>{expiresLabel}</strong>.
             </p>
 
-            {/* Dashboard link — available immediately */}
+            {/* Dashboard link — show credentials first, then open */}
             {laptopCmd.laptop_dashboard_url ? (
-              <a
-                href={`${grafanaBase}${laptopCmd.laptop_dashboard_url}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="neuro-btn w-full py-3 text-sm font-medium text-center block"
+              <button
+                onClick={openLaptopDashboard}
+                disabled={grafanaCredsLoading}
+                className="neuro-btn w-full py-3 text-sm font-medium disabled:opacity-60"
                 style={{ color: "var(--accent)" }}>
-                Open My Laptop Dashboard →
-              </a>
+                {grafanaCredsLoading ? "Loading credentials…" : "Open My Laptop Dashboard →"}
+              </button>
             ) : (
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                 Dashboard provisioning… try refreshing in a moment.
@@ -223,23 +259,104 @@ export default function SettingsPage() {
       </div>
 
       {/* Security */}
-      <div className="neuro p-6 space-y-3">
+      <div className="neuro p-6 space-y-4">
         <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Security</h2>
-        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          We&apos;ll send a reset link to your email.
-        </p>
-        {pwMsg && <p className="text-xs" style={{ color: "var(--accent)" }}>{pwMsg}</p>}
-        <button onClick={changePassword} disabled={pwLoading}
-          className="neuro-btn px-5 py-2 text-sm font-medium disabled:opacity-60"
-          style={{ color: "var(--text-primary)" }}>
-          {pwLoading ? "Sending…" : "Send password reset email"}
-        </button>
+
+        {/* Portal password reset */}
+        <div className="space-y-2">
+          <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Portal password</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            We&apos;ll send a reset link to your email.
+          </p>
+          {pwMsg && <p className="text-xs" style={{ color: "var(--accent)" }}>{pwMsg}</p>}
+          <button onClick={changePassword} disabled={pwLoading}
+            className="neuro-btn px-5 py-2 text-sm font-medium disabled:opacity-60"
+            style={{ color: "var(--text-primary)" }}>
+            {pwLoading ? "Sending…" : "Send password reset email"}
+          </button>
+        </div>
+
+        {/* Grafana dashboard password */}
+        {laptopCmd && (
+          <div className="space-y-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+            <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              Grafana dashboard password
+            </p>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Change the password you use to log in to Grafana.
+            </p>
+            <form onSubmit={changeGrafanaPassword} className="space-y-2">
+              <input
+                type="password"
+                placeholder="New password"
+                value={grafanaPwForm.new_password}
+                onChange={(e) => setGrafanaPwForm((f) => ({ ...f, new_password: e.target.value }))}
+                className="neuro-inset w-full px-3 py-2 text-sm bg-transparent outline-none"
+                style={{ color: "var(--text-primary)" }}
+              />
+              <input
+                type="password"
+                placeholder="Confirm new password"
+                value={grafanaPwForm.confirm}
+                onChange={(e) => setGrafanaPwForm((f) => ({ ...f, confirm: e.target.value }))}
+                className="neuro-inset w-full px-3 py-2 text-sm bg-transparent outline-none"
+                style={{ color: "var(--text-primary)" }}
+              />
+              {grafanaPwMsg && (
+                <p className="text-xs" style={{ color: grafanaPwMsg.includes("updated") ? "var(--accent)" : "#f87171" }}>
+                  {grafanaPwMsg}
+                </p>
+              )}
+              <button type="submit" disabled={grafanaPwLoading || !grafanaPwForm.new_password}
+                className="neuro-btn px-5 py-2 text-sm font-medium disabled:opacity-60"
+                style={{ color: "var(--text-primary)" }}>
+                {grafanaPwLoading ? "Updating…" : "Update Grafana password"}
+              </button>
+            </form>
+          </div>
+        )}
       </div>
 
       <button onClick={logout} className="neuro-btn w-full py-3 text-sm font-medium"
               style={{ color: "var(--text-muted)" }}>
         Sign out
       </button>
+
+      {/* Grafana credentials modal */}
+      {grafanaCreds && (
+        <div className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: "rgba(0,0,0,0.4)" }}>
+          <div className="neuro p-8 max-w-sm w-full space-y-5 mx-4">
+            <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+              Grafana login credentials
+            </h3>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Log in with these credentials to see only your laptop&apos;s metrics.
+            </p>
+            {[{ label: "Username", value: grafanaCreds.user }, { label: "Password", value: grafanaCreds.pass }].map(({ label, value }) => (
+              <div key={label} className="space-y-1">
+                <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>{label}</p>
+                <div className="neuro-inset px-3 py-2 flex items-center justify-between gap-2">
+                  <span className="text-sm font-mono" style={{ color: "var(--text-primary)" }}>{value}</span>
+                  <button onClick={() => navigator.clipboard.writeText(value)}
+                    className="text-xs px-2 py-1 neuro-btn" style={{ color: "var(--accent)" }}>
+                    Copy
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={() => { window.open(grafanaCreds.url, "_blank"); setGrafanaCreds(null); }}
+              className="neuro-btn-primary w-full py-2 text-sm font-medium">
+              Open My Laptop Dashboard →
+            </button>
+            <button onClick={() => setGrafanaCreds(null)}
+              className="w-full text-xs text-center" style={{ color: "var(--text-muted)" }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
