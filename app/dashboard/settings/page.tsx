@@ -27,6 +27,7 @@ export default function SettingsPage() {
   const [cmdError, setCmdError]     = useState("");
   const [os, setOs]                 = useState<"linux" | "macos">("linux");
   const [copied, setCopied]         = useState(false);
+  const [copiedStep1, setCopiedStep1] = useState(false);
   const [pwMsg, setPwMsg]           = useState("");
   const [pwLoading, setPwLoading]   = useState(false);
   const [grafanaCreds, setGrafanaCreds] = useState<{ url: string; user: string; pass: string } | null>(null);
@@ -196,13 +197,28 @@ export default function SettingsPage() {
 
             {/* macOS pre-step */}
             {os === "macos" && (
-              <div className="neuro-inset px-4 py-3 space-y-1">
+              <div className="neuro-inset px-4 py-3 space-y-2">
                 <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
                   Step 1 — install Node Exporter on your Mac:
                 </p>
-                <pre className="text-xs mt-1" style={{ color: "var(--accent)", fontFamily: "monospace" }}>
-                  brew install node_exporter{"\n"}node_exporter &
-                </pre>
+                <div className="relative">
+                  <pre className="text-xs pr-16" style={{ color: "var(--accent)", fontFamily: "monospace" }}>
+                    {"brew install node_exporter\nbrew services start node_exporter"}
+                  </pre>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText("brew install node_exporter\nbrew services start node_exporter");
+                      setCopiedStep1(true);
+                      setTimeout(() => setCopiedStep1(false), 2000);
+                    }}
+                    className="absolute top-0 right-0 neuro-btn px-2 py-1 text-xs font-medium"
+                    style={{ color: copiedStep1 ? "var(--accent)" : "var(--text-muted)" }}>
+                    {copiedStep1 ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  Runs automatically on startup — no need to restart it manually.
+                </p>
               </div>
             )}
 
