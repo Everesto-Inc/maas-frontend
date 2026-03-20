@@ -24,6 +24,7 @@ export default function SettingsPage() {
   const [client, setClient]         = useState<ClientInfo | null>(null);
   const [laptopCmd, setLaptopCmd]   = useState<LaptopCmd | null>(null);
   const [cmdLoading, setCmdLoading] = useState(false);
+  const [cmdError, setCmdError]     = useState("");
   const [os, setOs]                 = useState<"linux" | "macos">("linux");
   const [copied, setCopied]         = useState(false);
   const [pwMsg, setPwMsg]           = useState("");
@@ -44,11 +45,12 @@ export default function SettingsPage() {
 
   const generateLaptopCmd = async () => {
     setCmdLoading(true);
+    setCmdError("");
     try {
       const data = await api.get<LaptopCmd>("/clients/me/laptop-cmd");
       setLaptopCmd(data);
-    } catch {
-      // silent
+    } catch (err) {
+      setCmdError(err instanceof Error ? err.message : "Failed to generate command.");
     } finally {
       setCmdLoading(false);
     }
@@ -165,11 +167,16 @@ export default function SettingsPage() {
         </div>
 
         {!laptopCmd ? (
-          <button onClick={generateLaptopCmd} disabled={cmdLoading}
-            className="neuro-btn w-full py-3 text-sm font-medium disabled:opacity-60"
-            style={{ color: "var(--text-primary)" }}>
-            {cmdLoading ? "Setting up dashboard…" : "Get laptop command"}
-          </button>
+          <>
+            <button onClick={generateLaptopCmd} disabled={cmdLoading}
+              className="neuro-btn w-full py-3 text-sm font-medium disabled:opacity-60"
+              style={{ color: "var(--text-primary)" }}>
+              {cmdLoading ? "Setting up dashboard…" : "Get laptop command"}
+            </button>
+            {cmdError && (
+              <p className="text-xs mt-2" style={{ color: "#f87171" }}>{cmdError}</p>
+            )}
+          </>
         ) : (
           <div className="space-y-3">
 
@@ -246,6 +253,9 @@ export default function SettingsPage() {
               style={{ color: "var(--text-muted)" }}>
               {cmdLoading ? "Regenerating…" : "Regenerate command"}
             </button>
+            {cmdError && (
+              <p className="text-xs" style={{ color: "#f87171" }}>{cmdError}</p>
+            )}
           </div>
         )}
       </div>
