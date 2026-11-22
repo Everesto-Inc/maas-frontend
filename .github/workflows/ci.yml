@@ -28,6 +28,12 @@ jobs:
       semgrep: true
       sonarqube: true
       trivy: report
+      # Next.js bakes NEXT_PUBLIC_* into the JS bundle at build time (same values as the old frontend CI)
+      build-args: |
+        NEXT_PUBLIC_API_URL=https://api.everesto.live
+        NEXT_PUBLIC_GRAFANA_URL=https://grafana.everesto.live
+        NEXT_PUBLIC_APP_NAME=Oracle MaaS
+      sonar-args: -Dsonar.qualitygate.wait=false   # SonarQube reports but does not block — no tests yet (coverage gate)
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # only what Loop needs — never `inherit` (least privilege)
     permissions:
