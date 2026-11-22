@@ -1,0 +1,13 @@
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    ignore:   # base images: patch + security only — a new Python / Node / Java version is a deliberate, tested change
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+    cooldown: { default-days: 7 }
